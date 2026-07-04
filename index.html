@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EchoRead — hear your PDFs</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root{
+    --ink:#14161a; --panel:#1d2026; --edge:#2b2f37;
+    --paper:#e9e3d6; --dim:rgba(233,227,214,.34); --ui:#9aa1ad;
+    --beam:#f4b04a; --beam-bg:rgba(255,199,92,.18); --beam-text:#ffe9c2;
+  }
+  body.paper{
+    --ink:#f6f1e5; --panel:#ede6d4; --edge:#d9cfb8;
+    --paper:#2b2620; --dim:rgba(43,38,32,.38); --ui:#7a715f;
+    --beam:#c77d10; --beam-bg:rgba(244,176,74,.30); --beam-text:#3d2c07;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{background:var(--ink);color:var(--paper)}
+  body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.75}
+
+  #progress{position:fixed;top:0;left:0;height:3px;background:var(--beam);width:0;z-index:20}
+
+  header{
+    position:sticky;top:0;z-index:10;
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--edge);
+    font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:var(--ui);
+  }
+  .wordmark{font-family:Charter,Georgia,serif;font-size:17px;font-weight:700;color:var(--paper)}
+  .wordmark em{color:var(--beam);font-style:normal}
+  header .name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  button,select,input[type=password]{font:inherit;color:var(--paper);background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:6px 12px}
+  button{cursor:pointer;background:transparent}
+  button:hover{border-color:var(--beam)}
+  button.primary{background:var(--beam);border-color:var(--beam);color:#141009;font-weight:600}
+  body.paper button.primary{color:#fff}
+  button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--beam);outline-offset:2px}
+  select{max-width:160px}
+  label{display:flex;align-items:center;gap:6px;white-space:nowrap}
+  input[type=range]{accent-color:var(--beam)}
+  .spacer{flex:1}
+  #status{font-size:12px;min-width:60px}
+
+  #keybar{
+    display:none;gap:10px;align-items:center;flex-wrap:wrap;
+    padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--edge);
+    font-family:system-ui,sans-serif;font-size:13px;color:var(--ui);
+  }
+  #keybar input{width:340px;max-width:60vw}
+  #keybar a{color:var(--beam)}
+
+  #drop{
+    max-width:640px;margin:14vh auto;padding:56px 40px;text-align:center;
+    border:2px dashed var(--edge);border-radius:16px;cursor:pointer;
+    font-family:system-ui,-apple-system,sans-serif;
+  }
+  #drop.over{border-color:var(--beam);background:var(--beam-bg)}
+  #drop h1{font-family:Charter,Georgia,serif;font-size:40px;margin-bottom:10px}
+  #drop h1 em{color:var(--beam);font-style:normal}
+  #drop p{color:var(--ui);font-size:15px;line-height:1.6}
+  #drop .note{margin-top:24px;font-size:13px;color:var(--ui)}
+  kbd{border:1px solid var(--edge);border-radius:5px;padding:1px 7px;font-family:inherit}
+
+  #doc{max-width:700px;margin:0 auto;padding:44px 24px 40vh;font-size:19px;display:none}
+  #doc p{margin-bottom:1.1em}
+  #doc h2{font-size:25px;line-height:1.35;margin:1.6em 0 .6em;font-weight:700}
+  .pagemark{
+    font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.15em;
+    color:var(--ui);text-transform:uppercase;margin:40px 0 16px;
+    border-top:1px solid var(--edge);padding-top:8px;
+  }
+  .ck{border-radius:5px;padding:1px 2px;margin:-1px -2px;cursor:pointer}
+  .ck:hover{background:var(--beam-bg)}
+  .ck.active{background:var(--beam-bg);color:var(--beam-text);box-shadow:inset 3px 0 0 var(--beam)}
+  #doc.focusmode .ck:not(.active){color:var(--dim)}
+  #doc.focusmode .ck:hover{color:var(--paper)}
+  @media (prefers-reduced-motion:no-preference){.ck{transition:background .1s,color .1s}}
+</style>
+</head>
+<body>
+<div id="progress"></div>
+
+<header id="bar" style="display:none">
+  <span class="wordmark">Echo<em>Read</em></span>
+  <span class="name" id="fname"></span>
+  <button class="primary" id="playBtn">Play</button>
+  <select id="pagejump"><option value="">Page…</option></select>
+  <label>Provider
+    <select id="provider">
+      <option value="deepgram">Deepgram</option>
+      <option value="elevenlabs">ElevenLabs</option>
+      <option value="browser">Browser voice</option>
+    </select>
+  </label>
+  <label>Voice <select id="voice"></select></label>
+  <label>Speed <input type="range" id="rate" min="0.6" max="2" step="0.1" value="1"> <span id="rateVal">1.0×</span></label>
+  <label><input type="checkbox" id="focus" checked> Focus</label>
+  <span id="status"></span>
+  <span class="spacer"></span>
+  <button id="theme">Theme</button>
+  <button id="keyBtn">API key</button>
+  <button id="newFile">New PDF</button>
+</header>
+
+<div id="keybar">
+  <span id="keylabel"></span>
+  <input type="password" id="apikey" placeholder="Paste API key">
+  <button class="primary" id="saveKey">Save</button>
+  <span id="keyhelp"></span>
+</div>
+
+<div id="drop">
+  <h1>Echo<em>Read</em></h1>
+  <p>Drop a PDF here, or click to choose one.<br>
+     Click any sentence and it starts reading aloud from there in a human voice,<br>
+     highlighting each phrase as it goes — so the words echo instead of blur.</p>
+  <div class="note"><kbd>Space</kbd> pause · <kbd>↑</kbd><kbd>↓</kbd> skip · <kbd>Esc</kbd> stop · Your PDF stays on your device; only the text of each phrase is sent to the voice API.</div>
+  <input type="file" id="file" accept="application/pdf" hidden>
+</div>
+
+<main id="doc" class="focusmode"></main>
+
+<script>
+pdfjsLib.GlobalWorkerOptions.workerSrc =
+  "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+const $ = id => document.getElementById(id);
+const doc = $("doc"), drop = $("drop"), bar = $("bar"), keybar = $("keybar");
+
+/* ---------------- theme ---------------- */
+if (localStorage.getItem("echo.theme") === "paper") document.body.classList.add("paper");
+$("theme").addEventListener("click", () => {
+  document.body.classList.toggle("paper");
+  localStorage.setItem("echo.theme", document.body.classList.contains("paper") ? "paper" : "night");
+});
+
+/* ---------------- voices ---------------- */
+const VOICES = {
+  deepgram: [
+    ["aura-2-thalia-en","Thalia (female)"],["aura-2-helena-en","Helena (female)"],
+    ["aura-2-andromeda-en","Andromeda (female)"],["aura-2-asteria-en","Asteria (female)"],
+    ["aura-2-apollo-en","Apollo (male)"],["aura-2-orion-en","Orion (male)"],
+    ["aura-2-arcas-en","Arcas (male)"],["aura-2-zeus-en","Zeus (male)"]
+  ],
+  elevenlabs: [
+    ["21m00Tcm4TlvDq8ikWAM","Rachel (female)"],["JBFqnCBsd6RMkjVDRZzb","George (male)"],
+    ["XB0fDUnXU5powFXDhCwa","Charlotte (female)"],["nPczCjzI2devNBz1zQrb","Brian (male)"],
+    ["pFZP5JQG7iQjIQuC4Bku","Lily (female)"],["pNInz6obpgDQGcFmaJgB","Adam (male)"]
+  ]
+};
+function fillVoices() {
+  const p = $("provider").value, sel = $("voice");
+  sel.innerHTML = "";
+  if (p === "browser") {
+    speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang)).forEach(v => {
+      const o = document.createElement("option"); o.value = "b:" + v.name;
+      o.textContent = v.name.replace(/^Microsoft |^Google /,""); sel.appendChild(o);
+    });
+  } else {
+    VOICES[p].forEach(([id,name]) => {
+      const o = document.createElement("option"); o.value = id; o.textContent = name; sel.appendChild(o);
+    });
+  }
+  const saved = localStorage.getItem("echo.voice." + p);
+  if (saved && [...sel.options].some(o => o.value === saved)) sel.value = saved;
+}
+speechSynthesis.onvoiceschanged = fillVoices;
+
+/* ---------------- key management ---------------- */
+function keyFor(p) {
+  const v = localStorage.getItem("echo.key." + p);
+  if (!v) return "";
+  try { return atob(v); } catch { return v; }   // encoded at rest; tolerate old plain keys
+}
+function showKeybar() {
+  const p = $("provider").value;
+  if (p === "browser") { keybar.style.display = "none"; return; }
+  keybar.style.display = "flex";
+  $("keylabel").textContent = (p === "deepgram" ? "Deepgram" : "ElevenLabs") + " API key:";
+  $("apikey").value = "";
+  $("apikey").placeholder = keyFor(p) ? "Key saved ✓ — paste here only to replace it" : "Paste API key";
+  $("keyhelp").innerHTML = p === "deepgram"
+    ? 'Free at <a href="https://console.deepgram.com" target="_blank">console.deepgram.com</a> ($200 credit, no card)'
+    : 'Free at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a> (Profile → API keys)';
+}
+$("keyBtn").addEventListener("click", () =>
+  keybar.style.display = keybar.style.display === "flex" ? "none" : (showKeybar(), "flex"));
+$("saveKey").addEventListener("click", () => {
+  const v = $("apikey").value.trim();
+  if (v) localStorage.setItem("echo.key." + $("provider").value, btoa(v));
+  $("apikey").value = "";
+  keybar.style.display = "none"; setStatus(v ? "Key saved" : "");
+});
+$("provider").addEventListener("change", () => {
+  localStorage.setItem("echo.provider", $("provider").value);
+  fillVoices(); audioCache.clear();
+  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeybar();
+});
+$("voice").addEventListener("change", () => {
+  localStorage.setItem("echo.voice." + $("provider").value, $("voice").value);
+  audioCache.clear();
+});
+
+/* ---------------- file loading ---------------- */
+drop.addEventListener("click", () => $("file").click());
+drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", e => {
+  e.preventDefault(); drop.classList.remove("over");
+  const f = e.dataTransfer.files[0];
+  if (f && f.type === "application/pdf") loadPDF(f);
+});
+$("file").addEventListener("change", e => e.target.files[0] && loadPDF(e.target.files[0]));
+$("newFile").addEventListener("click", () => {
+  stopAll(); doc.style.display = "none"; bar.style.display = "none";
+  drop.style.display = "block"; $("file").value = ""; $("file").click();
+});
+
+let chunks = [];
+let cur = -1, playing = false, session = 0;
+const audioCache = new Map();
+let player = null;
+
+async function loadPDF(file) {
+  stopAll(); doc.innerHTML = ""; chunks = []; cur = -1; audioCache.clear();
+  $("fname").textContent = file.name;
+  $("pagejump").innerHTML = '<option value="">Page…</option>';
+  drop.querySelector("h1").innerHTML = "Reading your PDF…";
+
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const tc = await page.getTextContent();
+
+    const rows = [];
+    for (const it of tc.items) {
+      if (!it.str.trim()) continue;
+      const y = it.transform[5];
+      let row = rows.find(r => Math.abs(r.y - y) <= 3);
+      if (!row) { row = { y, h: it.height || 12, items: [] }; rows.push(row); }
+      row.items.push({ x: it.transform[4], str: it.str });
+      row.h = Math.max(row.h, it.height || 12);
+    }
+    rows.sort((a,b) => b.y - a.y);
+
+    // body text size = median row height on this page
+    const hs = rows.map(r => r.h).sort((a,b) => a-b);
+    const bodyH = hs.length ? hs[Math.floor(hs.length/2)] : 12;
+
+    const mark = document.createElement("div");
+    mark.className = "pagemark"; mark.id = "page-" + p;
+    mark.textContent = "Page " + p;
+    doc.appendChild(mark);
+    const opt = document.createElement("option");
+    opt.value = p; opt.textContent = "Page " + p;
+    $("pagejump").appendChild(opt);
+
+    // build blocks: heading rows stand alone; body rows merge into paragraphs
+    const blocks = []; let curPara = [];
+    const flush = () => { if (curPara.length) { blocks.push({ type:"p", text: curPara.join(" ") }); curPara = []; } };
+    for (let i = 0; i < rows.length; i++) {
+      const r = rows[i];
+      r.items.sort((a,b) => a.x - b.x);
+      const text = r.items.map(it => it.str).join(" ").replace(/\s+/g," ").trim();
+      if (!text) continue;
+      const isHeading = r.h >= bodyH * 1.25 && text.split(" ").length <= 14;
+      if (isHeading) { flush(); blocks.push({ type:"h", text }); continue; }
+      if (i > 0 && rows[i-1].y - r.y > Math.max(r.h,10) * 1.9) flush();
+      if (curPara.length && /-$/.test(curPara[curPara.length-1]))
+        curPara[curPara.length-1] = curPara[curPara.length-1].replace(/-$/,"") + text;
+      else curPara.push(text);
+    }
+    flush();
+
+    for (const b of blocks) {
+      const el = document.createElement(b.type === "h" ? "h2" : "p");
+      for (const phrase of splitPhrases(b.text)) {
+        const s = document.createElement("span");
+        s.className = "ck"; s.textContent = phrase;
+        const idx = chunks.length;
+        s.addEventListener("click", () => playFrom(idx));
+        el.appendChild(s); el.appendChild(document.createTextNode(" "));
+        chunks.push({ text: phrase, els: [s] });
+      }
+      doc.appendChild(el);
+    }
+  }
+
+  drop.style.display = "none";
+  drop.querySelector("h1").innerHTML = "Echo<em>Read</em>";
+  doc.style.display = "block"; bar.style.display = "flex";
+  fillVoices();
+  const savedP = localStorage.getItem("echo.provider");
+  if (savedP) { $("provider").value = savedP; fillVoices(); }
+  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeybar();
+  window.scrollTo(0,0);
+}
+
+$("pagejump").addEventListener("change", e => {
+  const el = document.getElementById("page-" + e.target.value);
+  if (el) el.scrollIntoView({ behavior:"smooth" });
+  e.target.value = "";
+});
+
+/* progress bar */
+document.addEventListener("scroll", () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  $("progress").style.width = (max > 0 ? (scrollY / max) * 100 : 0) + "%";
+});
+
+/* sentence -> phrase splitting */
+function splitPhrases(text) {
+  const sentences = text.match(/[^.?!]+[.?!]+["')\]]*|[^.?!]+$/g) || [text];
+  const out = [];
+  for (let s of sentences) {
+    s = s.trim(); if (!s) continue;
+    if (s.split(" ").length <= 24) { out.push(s); continue; }
+    let parts = s.split(/(?<=[,;:\u2013\u2014])\s+/);
+    let acc = [];
+    for (const part of parts) {
+      acc.push(part);
+      if (acc.join(" ").split(" ").length >= 8) { out.push(acc.join(" ")); acc = []; }
+    }
+    if (acc.length) {
+      const tail = acc.join(" ");
+      if (out.length && tail.split(" ").length < 4) out[out.length-1] += " " + tail;
+      else out.push(tail);
+    }
+  }
+  return out;
+}
+
+/* ---------------- playback ---------------- */
+function setStatus(t) { $("status").textContent = t || ""; }
+
+async function fetchAudio(i) {
+  if (audioCache.has(i)) return audioCache.get(i);
+  const p = $("provider").value, key = keyFor(p), voice = $("voice").value;
+  const text = chunks[i].text;
+  let url, opts;
+  if (p === "deepgram") {
+    url = "https://api.deepgram.com/v1/speak?model=" + voice + "&encoding=mp3";
+    opts = { method:"POST",
+      headers:{ "Authorization":"Token " + key, "Content-Type":"application/json" },
+      body: JSON.stringify({ text }) };
+  } else {
+    url = "https://api.elevenlabs.io/v1/text-to-speech/" + voice + "?output_format=mp3_44100_64";
+    opts = { method:"POST",
+      headers:{ "xi-api-key": key, "Content-Type":"application/json" },
+      body: JSON.stringify({ text, model_id:"eleven_flash_v2_5" }) };
+  }
+  const res = await fetch(url, opts);
+  if (!res.ok) throw new Error(res.status);
+  const blobUrl = URL.createObjectURL(await res.blob());
+  audioCache.set(i, blobUrl);
+  return blobUrl;
+}
+
+function playFrom(i) { stopAll(); cur = i; playing = true; playCurrent(session); }
+
+async function playCurrent(tok) {
+  if (tok !== session) return;
+  if (cur < 0 || cur >= chunks.length) { stopAll(); return; }
+  highlight(cur);
+  const p = $("provider").value;
+  $("playBtn").textContent = "Pause";
+
+  if (p === "browser") {
+    const u = new SpeechSynthesisUtterance(chunks[cur].text);
+    u.rate = parseFloat($("rate").value);
+    const vName = $("voice").value.slice(2);
+    const v = speechSynthesis.getVoices().find(x => x.name === vName);
+    if (v) u.voice = v;
+    u.onend = () => { if (playing && tok === session) { cur++; playCurrent(tok); } };
+    speechSynthesis.speak(u);
+    return;
+  }
+
+  if (!keyFor(p)) { setStatus("Add an API key first"); showKeybar(); stopAll(); return; }
+  try {
+    setStatus(audioCache.has(cur) ? "" : "loading…");
+    const src = await fetchAudio(cur);
+    setStatus("");
+    if (!playing || tok !== session) return;   // a newer click or stop happened while downloading
+    player = new Audio(src);
+    player.playbackRate = parseFloat($("rate").value);
+    player.onended = () => { if (playing && tok === session) { cur++; playCurrent(tok); } };
+    player.play();
+    if (cur + 1 < chunks.length) fetchAudio(cur + 1).catch(()=>{});
+  } catch (e) {
+    setStatus(e.message === "401" ? "Invalid API key" : "Voice API error (" + e.message + ")");
+    stopAll();
+  }
+}
+
+function highlight(i) {
+  document.querySelectorAll(".ck.active").forEach(el => el.classList.remove("active"));
+  if (i < 0 || i >= chunks.length) return;
+  chunks[i].els.forEach(el => el.classList.add("active"));
+  const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  chunks[i].els[0].scrollIntoView({ behavior: reduce ? "auto":"smooth", block:"center" });
+}
+
+function stopAll() {
+  session++;                 // invalidates every pending fetch/callback
+  playing = false;
+  speechSynthesis.cancel();
+  if (player) { player.pause(); player = null; }
+  document.querySelectorAll(".ck.active").forEach(el => el.classList.remove("active"));
+  $("playBtn").textContent = "Play";
+}
+
+$("playBtn").addEventListener("click", togglePlay);
+function togglePlay() {
+  if (playing) {
+    playing = false; speechSynthesis.cancel();
+    if (player) player.pause();
+    $("playBtn").textContent = "Play";
+  } else {
+    if (cur < 0) cur = 0;
+    playing = true;
+    if (player && $("provider").value !== "browser") { player.play(); $("playBtn").textContent = "Pause"; }
+    else playCurrent(session);
+  }
+}
+$("rate").addEventListener("input", () => {
+  $("rateVal").textContent = parseFloat($("rate").value).toFixed(1) + "×";
+  if (player) player.playbackRate = parseFloat($("rate").value);
+});
+$("focus").addEventListener("change", e => doc.classList.toggle("focusmode", e.target.checked));
+
+document.addEventListener("keydown", e => {
+  if (doc.style.display === "none") return;
+  if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (e.code === "Space") { e.preventDefault(); togglePlay(); }
+  if (e.key === "ArrowDown") { e.preventDefault(); skip(1); }
+  if (e.key === "ArrowUp")   { e.preventDefault(); skip(-1); }
+  if (e.key === "Escape") stopAll();
+});
+function skip(d) {
+  const target = Math.max(0, Math.min(chunks.length - 1, (cur < 0 ? 0 : cur) + d));
+  if (playing) playFrom(target); else { cur = target; highlight(cur); }
+}
+</script>
+</body>
+</html>
