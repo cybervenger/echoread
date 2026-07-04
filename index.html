@@ -7,83 +7,120 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
-    --ink:#14161a; --glass:rgba(24,27,32,.72); --edge:#2b2f37;
-    --paper:#e9e3d6; --dim:rgba(233,227,214,.34); --ui:#9aa1ad;
-    --beam:#f4b04a; --beam-bg:rgba(255,199,92,.18); --beam-text:#ffe9c2;
-    --glow1:rgba(244,176,74,.10); --glow2:rgba(64,140,150,.11);
+    --ink:#15161a; --paper:#ece6d8; --ui:#9aa1ad; --dim:rgba(236,230,216,.32);
+    --edge:rgba(236,230,216,.14);
+    --glass:rgba(28,30,36,.62); --glass-hi:rgba(255,255,255,.05);
+    --beam:#f2ad4d; --beam-bg:rgba(242,173,77,.20); --beam-text:#ffe8c2;
+    --bg-dim:.55; --read-width:700px;
   }
   body.paper{
-    --ink:#f6f1e5; --glass:rgba(246,241,229,.78); --edge:#d9cfb8;
-    --paper:#2b2620; --dim:rgba(43,38,32,.38); --ui:#7a715f;
-    --beam:#c77d10; --beam-bg:rgba(244,176,74,.30); --beam-text:#3d2c07;
-    --glow1:rgba(199,125,16,.12); --glow2:rgba(64,140,150,.10);
+    --ink:#f7f2e6; --paper:#2c2620; --ui:#8a7f6a; --dim:rgba(44,38,32,.34);
+    --edge:rgba(44,38,32,.16);
+    --glass:rgba(255,252,244,.68); --glass-hi:rgba(0,0,0,.03);
+    --beam:#c17a12; --beam-bg:rgba(193,122,18,.22); --beam-text:#3d2c07;
   }
   *{box-sizing:border-box;margin:0;padding:0}
-  html,body{background:var(--ink);color:var(--paper)}
-  body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.78}
-  body::before{
-    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  html,body{background:var(--ink);color:var(--paper);height:100%}
+  body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.8;overflow-x:hidden}
+
+  #bgLayer{position:fixed;inset:0;z-index:-3;background-size:cover;background-position:center;filter:saturate(1.05)}
+  #bgDim{position:fixed;inset:0;z-index:-2;background:var(--ink);opacity:var(--bg-dim);transition:opacity .2s}
+  body.paper #bgDim{background:var(--ink)}
+  #bgGlow{
+    position:fixed;inset:0;z-index:-1;pointer-events:none;
     background:
-      radial-gradient(640px 420px at 88% 8%, var(--glow1), transparent 62%),
-      radial-gradient(760px 540px at 6% 92%, var(--glow2), transparent 62%);
+      radial-gradient(650px 440px at 85% 6%, rgba(242,173,77,.09), transparent 62%),
+      radial-gradient(760px 540px at 8% 94%, rgba(70,140,150,.10), transparent 62%);
   }
-  #progress{position:fixed;top:0;left:0;height:3px;background:var(--beam);width:0;z-index:30}
 
-  /* ============ sidebar ============ */
+  #progress{position:fixed;top:0;left:0;height:2.5px;background:var(--beam);width:0;z-index:40}
+
+  /* ---------------- shared glass surface ---------------- */
+  .glass{
+    background:var(--glass);
+    backdrop-filter:blur(26px) saturate(160%);
+    -webkit-backdrop-filter:blur(26px) saturate(160%);
+    border:1px solid var(--edge);
+    box-shadow:0 12px 50px rgba(0,0,0,.30), inset 0 1px 0 var(--glass-hi);
+  }
+
+  /* ---------------- sidebar (overlay drawer, no toggle button) ---------------- */
   #side{
-    position:fixed;top:0;bottom:0;left:0;width:272px;z-index:20;
-    background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
-    border-right:1px solid var(--edge);
-    padding:20px 18px;overflow-y:auto;
-    display:flex;flex-direction:column;gap:20px;
+    position:fixed;top:14px;bottom:14px;left:14px;width:288px;z-index:30;
+    border-radius:20px;padding:22px 20px;
+    display:flex;flex-direction:column;gap:20px;overflow-y:auto;
     font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:var(--ui);
-    transition:transform .25s ease;
+    transform:translateX(-120%);opacity:0;
+    transition:transform .28s cubic-bezier(.2,.8,.2,1),opacity .22s;
   }
-  body.nosb #side{transform:translateX(-100%)}
-  #sbToggle{
-    position:fixed;top:14px;left:14px;z-index:25;display:none;
-    background:var(--glass);backdrop-filter:blur(12px);
-    border:1px solid var(--edge);border-radius:10px;
-    padding:8px 12px;color:var(--paper);cursor:pointer;font-size:16px;
+  body.sb-open #side{transform:translateX(0);opacity:1}
+  #scrim{
+    position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.25);
+    opacity:0;pointer-events:none;transition:opacity .22s;
   }
-  body.nosb #sbToggle{display:block}
-  .sidehead{display:flex;align-items:center;justify-content:space-between}
-  .wordmark{font-family:Charter,Georgia,serif;font-size:21px;font-weight:700;color:var(--paper)}
-  .wordmark em{color:var(--beam);font-style:normal}
-  .sec{display:flex;flex-direction:column;gap:9px}
-  .sec .t{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ui)}
-  #fname{color:var(--paper);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.sb-open #scrim{opacity:1;pointer-events:auto}
 
-  button,select,input[type=password]{
+  .wordmark{font-family:Charter,Georgia,serif;font-size:22px;font-weight:700;color:var(--paper)}
+  .wordmark em{color:var(--beam);font-style:normal}
+  .sec{display:flex;flex-direction:column;gap:9px;padding-bottom:16px;border-bottom:1px solid var(--edge)}
+  .sec:last-of-type{border-bottom:none}
+  .sec .t{font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ui)}
+  #fname{color:var(--paper);font-size:12.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  button,select,input[type=password],input[type=text]{
     font:inherit;color:var(--paper);background:transparent;
     border:1px solid var(--edge);border-radius:9px;padding:8px 12px;width:100%;
   }
-  select{background:var(--glass)}
+  select{background:rgba(0,0,0,.15)}
+  body.paper select{background:rgba(255,255,255,.25)}
   button{cursor:pointer}
   button:hover{border-color:var(--beam)}
   button.primary{background:var(--beam);border-color:var(--beam);color:#141009;font-weight:700;font-size:15px;padding:11px}
-  body.paper button.primary{color:#fff}
+  button.small{font-size:12px;padding:7px 10px}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--beam);outline-offset:2px}
   .row{display:flex;align-items:center;gap:8px}
-  .row span.v{min-width:38px;text-align:right;color:var(--paper)}
+  .row span.v{min-width:34px;text-align:right;color:var(--paper);font-size:12px}
   input[type=range]{width:100%;accent-color:var(--beam)}
   label.chk{display:flex;align-items:center;gap:8px;cursor:pointer}
-  #status{min-height:16px;font-size:12px;color:var(--beam)}
+  #status{min-height:15px;font-size:12px;color:var(--beam)}
   #resumeBtn{display:none}
-  #keywrap{display:none;flex-direction:column;gap:8px}
-  #keywrap a{color:var(--beam)}
-  .hint{margin-top:auto;font-size:11.5px;line-height:1.9;color:var(--ui)}
+  .keywrap{display:none;flex-direction:column;gap:8px;margin-top:2px}
+  .keywrap a{color:var(--beam)}
+  .hint{font-size:11.5px;line-height:1.9;color:var(--ui)}
   kbd{border:1px solid var(--edge);border-radius:5px;padding:0 6px;font-family:inherit}
 
-  /* ============ reading surface ============ */
-  #content{margin-left:272px;transition:margin .25s ease}
-  body.nosb #content{margin-left:0}
-  #doc{max-width:880px;margin:0 auto;padding:56px 40px 42vh;font-size:19.5px;display:none}
+  #edgeHint{
+    position:fixed;bottom:20px;left:20px;z-index:15;
+    font-family:system-ui,sans-serif;font-size:12.5px;color:var(--ui);
+    background:var(--glass);backdrop-filter:blur(16px);
+    border:1px solid var(--edge);border-radius:10px;padding:8px 14px;
+    opacity:1;transition:opacity .6s;pointer-events:none;
+  }
+  #edgeHint.gone{opacity:0}
+
+  /* ---------------- stage ---------------- */
+  #stage{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:8vh 24px 40vh}
+  #landing{
+    max-width:600px;width:100%;text-align:center;padding:64px 44px;border-radius:24px;
+    font-family:system-ui,-apple-system,sans-serif;
+  }
+  #landing h1{font-family:Charter,Georgia,serif;font-size:46px;margin-bottom:14px;color:var(--paper)}
+  #landing h1 em{color:var(--beam);font-style:normal}
+  #landing p{color:var(--ui);font-size:15.5px;line-height:1.7;margin-bottom:26px}
+  #landing button.primary{width:auto;padding:12px 28px;margin:0 auto;display:block}
+  #landing .note{margin-top:22px;font-size:12.5px;color:var(--ui)}
+  #landing.over{border-color:var(--beam)}
+
+  #surface{
+    max-width:var(--read-width);width:100%;border-radius:22px;
+    padding:56px 52px 30vh;display:none;font-size:19.5px;
+  }
   #doc p{margin-bottom:1.15em}
-  #doc h2{font-size:26px;line-height:1.35;margin:1.6em 0 .6em;font-weight:700}
+  #doc h2{font-size:26px;line-height:1.35;margin:1.5em 0 .5em;font-weight:700;color:var(--paper)}
+  #doc h3{font-size:21px;line-height:1.4;margin:1.3em 0 .4em;font-weight:600;font-style:italic;color:var(--paper);opacity:.9}
   .pagemark{
-    font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.15em;
-    color:var(--ui);text-transform:uppercase;margin:42px 0 16px;
+    font-family:system-ui,sans-serif;font-size:10.5px;letter-spacing:.16em;
+    color:var(--ui);text-transform:uppercase;margin:38px 0 16px;
     border-top:1px solid var(--edge);padding-top:8px;
   }
   .ck{border-radius:5px;padding:1px 2px;margin:-1px -2px;cursor:pointer}
@@ -93,35 +130,22 @@
   #doc.focusmode .ck:hover{color:var(--paper)}
   @media (prefers-reduced-motion:no-preference){.ck{transition:background .1s,color .1s}}
 
-  #drop{
-    max-width:640px;margin:16vh auto;padding:56px 40px;text-align:center;
-    border:2px dashed var(--edge);border-radius:16px;cursor:pointer;
-    background:var(--glass);backdrop-filter:blur(12px);
-    font-family:system-ui,-apple-system,sans-serif;
-  }
-  #drop.over{border-color:var(--beam);background:var(--beam-bg)}
-  #drop h1{font-family:Charter,Georgia,serif;font-size:42px;margin-bottom:10px}
-  #drop h1 em{color:var(--beam);font-style:normal}
-  #drop p{color:var(--ui);font-size:15px;line-height:1.7}
-  #drop .note{margin-top:24px;font-size:13px;color:var(--ui)}
-
-  @media (max-width:820px){
-    #side{width:min(272px,84vw)}
-    #content{margin-left:0}
-    body:not(.nosb) #content{filter:blur(2px)}
-    #doc{padding:56px 20px 42vh}
+  @media (max-width:760px){
+    #side{left:8px;right:8px;top:8px;bottom:8px;width:auto}
+    #surface{padding:44px 24px 30vh}
+    #landing{padding:48px 26px}
   }
 </style>
 </head>
-<body class="nosb">
+<body>
 <div id="progress"></div>
-<button id="sbToggle" title="Menu (S)">☰</button>
+<div id="bgLayer"></div>
+<div id="bgDim"></div>
+<div id="bgGlow"></div>
+<div id="scrim"></div>
 
-<aside id="side">
-  <div class="sidehead">
-    <span class="wordmark">Echo<em>Read</em></span>
-    <button style="width:auto;padding:6px 10px" id="sbClose" title="Hide (S)">⟨</button>
-  </div>
+<aside id="side" class="glass">
+  <span class="wordmark">Echo<em>Read</em></span>
 
   <div class="sec">
     <span class="t">Document</span>
@@ -135,7 +159,7 @@
     <span class="t">Playback</span>
     <button class="primary" id="playBtn">Play</button>
     <div class="row"><span>Speed</span><input type="range" id="rate" min="0.6" max="2" step="0.1" value="1"><span class="v" id="rateVal">1.0×</span></div>
-    <label class="chk"><input type="checkbox" id="focus" checked> Focus mode (dim the rest)</label>
+    <label class="chk"><input type="checkbox" id="focus" checked> Focus mode</label>
     <span id="status"></span>
   </div>
 
@@ -147,68 +171,127 @@
       <option value="browser">Browser voice</option>
     </select>
     <select id="voice"></select>
-    <button id="keyBtn">API key</button>
-    <div id="keywrap">
+    <button class="small" id="keyBtn">Voice API key</button>
+    <div class="keywrap" id="keywrap">
       <input type="password" id="apikey" placeholder="Paste API key">
-      <button class="primary" id="saveKey" style="font-size:13px;padding:8px">Save key</button>
-      <span id="keyhelp"></span>
+      <button class="primary small" id="saveKey">Save key</button>
+      <span id="keyhelp" class="hint"></span>
+    </div>
+  </div>
+
+  <div class="sec">
+    <span class="t">Structure</span>
+    <label class="chk"><input type="checkbox" id="smartStruct"> Smart headings (Gemini)</label>
+    <button class="small" id="geminiKeyBtn">Gemini API key</button>
+    <div class="keywrap" id="geminiKeywrap">
+      <input type="password" id="geminiApikey" placeholder="Paste Gemini API key">
+      <button class="primary small" id="saveGeminiKey">Save key</button>
+      <span class="hint">Free at <a href="https://aistudio.google.com/apikey" target="_blank" style="color:var(--beam)">aistudio.google.com</a>. Slower load, better catches repeated subheadings.</span>
     </div>
   </div>
 
   <div class="sec">
     <span class="t">Appearance</span>
     <div class="row"><span>Text size</span><input type="range" id="fsize" min="16" max="24" step="0.5" value="19.5"><span class="v" id="fsizeVal">19.5</span></div>
+    <div class="row"><span>Column</span><input type="range" id="rwidth" min="560" max="960" step="20" value="700"><span class="v" id="rwidthVal">700</span></div>
     <button id="theme">Switch theme</button>
+    <button id="bgPick">Choose background image</button>
+    <input type="file" id="bgFile" accept="image/*" hidden>
+    <div class="row"><span>Dim</span><input type="range" id="bgDimSlider" min="0.15" max="0.9" step="0.05" value="0.55"><span class="v" id="bgDimVal">55%</span></div>
+    <button class="small" id="bgClear">Remove background</button>
   </div>
 
   <div class="hint">
     <kbd>Space</kbd> play / pause<br>
     <kbd>↑</kbd><kbd>↓</kbd> previous / next phrase<br>
-    <kbd>R</kbd> repeat phrase · <kbd>S</kbd> sidebar · <kbd>Esc</kbd> stop
+    <kbd>R</kbd> repeat phrase · <kbd>S</kbd> menu · <kbd>Esc</kbd> stop
   </div>
 </aside>
 
-<div id="content">
-  <div id="drop">
+<div id="edgeHint">Press <kbd>S</kbd> for menu</div>
+
+<main id="stage">
+  <div id="landing" class="glass">
     <h1>Echo<em>Read</em></h1>
-    <p>Drop a PDF here, or click to choose one.<br>
-       Click any sentence and it starts reading aloud from there in a human voice,<br>
-       highlighting each phrase as it goes — so the words echo instead of blur.</p>
-    <div class="note">Your PDF stays on your device; only the text of each phrase is sent to the voice API.</div>
+    <p>Drop a PDF here, or choose one. Click any sentence and it reads aloud from
+       there in a human voice, highlighting each phrase as it goes.</p>
+    <button class="primary" id="dropChoose">Choose a PDF</button>
+    <div class="note">Your PDF stays on your device. Press <kbd>S</kbd> anytime for the menu.</div>
     <input type="file" id="file" accept="application/pdf" hidden>
   </div>
-  <main id="doc" class="focusmode"></main>
-</div>
+  <div id="surface" class="glass"><div id="doc" class="focusmode"></div></div>
+</main>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const $ = id => document.getElementById(id);
-const doc = $("doc"), drop = $("drop");
+const doc = $("doc"), landing = $("landing"), surface = $("surface");
 
-/* ---------------- sidebar ---------------- */
-function toggleSidebar(force) {
-  document.body.classList.toggle("nosb", force);
-}
-$("sbToggle").addEventListener("click", () => toggleSidebar(false));
-$("sbClose").addEventListener("click", () => toggleSidebar(true));
+/* ---------------- sidebar: keyboard only, click-away, edge hint ---------------- */
+function setSidebar(open) { document.body.classList.toggle("sb-open", open); }
+$("scrim").addEventListener("click", () => setSidebar(false));
+if (!localStorage.getItem("echo.hintSeen")) {
+  setTimeout(() => { $("edgeHint").classList.add("gone"); localStorage.setItem("echo.hintSeen","1"); }, 5000);
+} else $("edgeHint").style.display = "none";
 
-/* ---------------- theme & text size ---------------- */
+/* ---------------- theme ---------------- */
 if (localStorage.getItem("echo.theme") === "paper") document.body.classList.add("paper");
 $("theme").addEventListener("click", () => {
   document.body.classList.toggle("paper");
   localStorage.setItem("echo.theme", document.body.classList.contains("paper") ? "paper" : "night");
 });
+
+/* ---------------- text size / column width ---------------- */
 const savedFs = localStorage.getItem("echo.fsize");
-if (savedFs) { $("fsize").value = savedFs; applyFsize(); }
+if (savedFs) $("fsize").value = savedFs;
+applyFsize();
 $("fsize").addEventListener("input", applyFsize);
 function applyFsize() {
   const v = $("fsize").value;
-  doc.style.fontSize = v + "px";
+  surface.style.fontSize = v + "px";
   $("fsizeVal").textContent = v;
   localStorage.setItem("echo.fsize", v);
 }
+const savedRw = localStorage.getItem("echo.rwidth");
+if (savedRw) $("rwidth").value = savedRw;
+applyRwidth();
+$("rwidth").addEventListener("input", applyRwidth);
+function applyRwidth() {
+  const v = $("rwidth").value;
+  document.documentElement.style.setProperty("--read-width", v + "px");
+  $("rwidthVal").textContent = v;
+  localStorage.setItem("echo.rwidth", v);
+}
+
+/* ---------------- background image ---------------- */
+function applyBg(dataUrl) {
+  $("bgLayer").style.backgroundImage = dataUrl ? "url(" + dataUrl + ")" : "none";
+}
+const savedBg = localStorage.getItem("echo.bgimage");
+if (savedBg) applyBg(savedBg);
+const savedDim = localStorage.getItem("echo.bgdim");
+if (savedDim) { $("bgDimSlider").value = savedDim; document.documentElement.style.setProperty("--bg-dim", savedDim); $("bgDimVal").textContent = Math.round(savedDim*100)+"%"; }
+$("bgPick").addEventListener("click", () => $("bgFile").click());
+$("bgFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 3.5 * 1024 * 1024) { setStatus("Image too large (max ~3.5MB)"); return; }
+  const reader = new FileReader();
+  reader.onload = () => {
+    applyBg(reader.result);
+    try { localStorage.setItem("echo.bgimage", reader.result); } catch { setStatus("Image saved for this session only"); }
+  };
+  reader.readAsDataURL(f);
+});
+$("bgClear").addEventListener("click", () => {
+  applyBg(null); localStorage.removeItem("echo.bgimage");
+});
+$("bgDimSlider").addEventListener("input", e => {
+  document.documentElement.style.setProperty("--bg-dim", e.target.value);
+  $("bgDimVal").textContent = Math.round(e.target.value*100)+"%";
+  localStorage.setItem("echo.bgdim", e.target.value);
+});
 
 /* ---------------- voices ---------------- */
 const VOICES = {
@@ -242,46 +325,65 @@ function fillVoices() {
 }
 speechSynthesis.onvoiceschanged = fillVoices;
 
-/* ---------------- key management ---------------- */
-function keyFor(p) {
-  const v = localStorage.getItem("echo.key." + p);
+/* ---------------- generic key storage ---------------- */
+function getKey(ns) {
+  const v = localStorage.getItem("echo.key." + ns);
   if (!v) return "";
   try { return atob(v); } catch { return v; }
 }
+function setKey(ns, raw) { localStorage.setItem("echo.key." + ns, btoa(raw)); }
+
 function showKeywrap() {
   const p = $("provider").value;
   if (p === "browser") { $("keywrap").style.display = "none"; return; }
   $("keywrap").style.display = "flex";
   $("apikey").value = "";
-  $("apikey").placeholder = keyFor(p) ? "Key saved ✓ — paste only to replace" : "Paste API key";
+  $("apikey").placeholder = getKey(p) ? "Key saved ✓ — paste only to replace" : "Paste API key";
   $("keyhelp").innerHTML = p === "deepgram"
-    ? 'Free at <a href="https://console.deepgram.com" target="_blank">console.deepgram.com</a> ($200 credit, no card)'
-    : 'Free at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a> (Profile → API keys)';
+    ? 'Free at <a href="https://console.deepgram.com" target="_blank" style="color:var(--beam)">console.deepgram.com</a> ($200 credit, no card)'
+    : 'Free at <a href="https://elevenlabs.io" target="_blank" style="color:var(--beam)">elevenlabs.io</a> (Profile → API keys)';
 }
 $("keyBtn").addEventListener("click", () =>
   $("keywrap").style.display = $("keywrap").style.display === "flex" ? "none" : (showKeywrap(), "flex"));
 $("saveKey").addEventListener("click", () => {
   const v = $("apikey").value.trim();
-  if (v) localStorage.setItem("echo.key." + $("provider").value, btoa(v));
-  $("apikey").value = "";
-  $("keywrap").style.display = "none"; setStatus(v ? "Key saved" : "");
+  if (v) setKey($("provider").value, v);
+  $("apikey").value = ""; $("keywrap").style.display = "none"; setStatus(v ? "Key saved" : "");
 });
 $("provider").addEventListener("change", () => {
   localStorage.setItem("echo.provider", $("provider").value);
   fillVoices(); audioCache.clear();
-  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeywrap();
+  if ($("provider").value !== "browser" && !getKey($("provider").value)) showKeywrap();
 });
 $("voice").addEventListener("change", () => {
   localStorage.setItem("echo.voice." + $("provider").value, $("voice").value);
   audioCache.clear();
 });
 
+$("smartStruct").checked = localStorage.getItem("echo.smartstruct") === "1";
+$("smartStruct").addEventListener("change", e => {
+  localStorage.setItem("echo.smartstruct", e.target.checked ? "1" : "0");
+  if (e.target.checked && !getKey("gemini")) $("geminiKeywrap").style.display = "flex";
+});
+$("geminiKeyBtn").addEventListener("click", () => {
+  $("geminiApikey").value = "";
+  $("geminiApikey").placeholder = getKey("gemini") ? "Key saved ✓ — paste only to replace" : "Paste Gemini API key";
+  $("geminiKeywrap").style.display = $("geminiKeywrap").style.display === "flex" ? "none" : "flex";
+});
+$("saveGeminiKey").addEventListener("click", () => {
+  const v = $("geminiApikey").value.trim();
+  if (v) setKey("gemini", v);
+  $("geminiApikey").value = ""; $("geminiKeywrap").style.display = "none"; setStatus(v ? "Gemini key saved" : "");
+});
+
 /* ---------------- file loading ---------------- */
-drop.addEventListener("click", () => $("file").click());
-drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
-drop.addEventListener("dragleave", () => drop.classList.remove("over"));
-drop.addEventListener("drop", e => {
-  e.preventDefault(); drop.classList.remove("over");
+[landing, $("dropChoose")].forEach(el => el && el.addEventListener("click", e => {
+  if (e.target === $("dropChoose") || e.target === landing) $("file").click();
+}));
+landing.addEventListener("dragover", e => { e.preventDefault(); landing.classList.add("over"); });
+landing.addEventListener("dragleave", () => landing.classList.remove("over"));
+landing.addEventListener("drop", e => {
+  e.preventDefault(); landing.classList.remove("over");
   const f = e.dataTransfer.files[0];
   if (f && f.type === "application/pdf") loadPDF(f);
 });
@@ -294,18 +396,44 @@ let curFileName = "";
 const audioCache = new Map();
 let player = null;
 
+/* ---------------- Gemini structuring ---------------- */
+async function classifyWithGemini(lineTexts) {
+  const key = getKey("gemini");
+  if (!key || !lineTexts.length) return null;
+  const prompt = "You will receive lines of text extracted from one page of a textbook PDF, " +
+    "in reading order, one per line, prefixed with an index. Classify each line as exactly one of: " +
+    "heading, subheading, body. Section titles and repeated topic labels are heading or subheading; " +
+    "normal sentences are body. Return ONLY a JSON array of strings (no other text), same length and order " +
+    "as the input, e.g. [\"heading\",\"body\",\"body\"].\n\nLines:\n" +
+    lineTexts.map((t,i) => i + ": " + t).join("\n");
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=" + key;
+  const res = await fetch(url, {
+    method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+  });
+  if (!res.ok) throw new Error("gemini-" + res.status);
+  const data = await res.json();
+  let text = data.candidates?.[0]?.content?.parts?.[0]?.text || "";
+  text = text.replace(/```json|```/g, "").trim();
+  const arr = JSON.parse(text);
+  if (!Array.isArray(arr) || arr.length !== lineTexts.length) return null;
+  return arr;
+}
+
 async function loadPDF(file) {
   stopAll(); doc.innerHTML = ""; chunks = []; cur = -1; audioCache.clear();
   curFileName = file.name;
   $("fname").textContent = file.name;
   $("pagejump").innerHTML = '<option value="">Jump to page…</option>';
   $("resumeBtn").style.display = "none";
-  drop.querySelector("h1").innerHTML = "Reading your PDF…";
+  landing.querySelector("h1").innerHTML = "Reading your PDF…";
 
   const buf = await file.arrayBuffer();
   const pdf = await pdfjsLib.getDocument({ data: buf }).promise;
+  const useGemini = $("smartStruct").checked && getKey("gemini");
 
   for (let p = 1; p <= pdf.numPages; p++) {
+    if (useGemini) setStatus("Structuring page " + p + " of " + pdf.numPages + "…");
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
     const rows = [];
@@ -318,8 +446,16 @@ async function loadPDF(file) {
       row.h = Math.max(row.h, it.height || 12);
     }
     rows.sort((a,b) => b.y - a.y);
-    const hs = rows.map(r => r.h).sort((a,b) => a-b);
+    for (const r of rows) { r.items.sort((a,b) => a.x - b.x); r.text = r.items.map(it => it.str).join(" ").replace(/\s+/g," ").trim(); }
+    const nonEmpty = rows.filter(r => r.text);
+    const hs = nonEmpty.map(r => r.h).sort((a,b) => a-b);
     const bodyH = hs.length ? hs[Math.floor(hs.length/2)] : 12;
+
+    let roles = null;
+    if (useGemini && nonEmpty.length) {
+      try { roles = await classifyWithGemini(nonEmpty.map(r => r.text)); }
+      catch { roles = null; }
+    }
 
     const mark = document.createElement("div");
     mark.className = "pagemark"; mark.id = "page-" + p;
@@ -331,14 +467,19 @@ async function loadPDF(file) {
 
     const blocks = []; let curPara = [];
     const flush = () => { if (curPara.length) { blocks.push({ type:"p", text: curPara.join(" ") }); curPara = []; } };
-    for (let i = 0; i < rows.length; i++) {
-      const r = rows[i];
-      r.items.sort((a,b) => a.x - b.x);
-      const text = r.items.map(it => it.str).join(" ").replace(/\s+/g," ").trim();
-      if (!text) continue;
-      const isHeading = r.h >= bodyH * 1.25 && text.split(" ").length <= 14;
-      if (isHeading) { flush(); blocks.push({ type:"h", text }); continue; }
-      if (i > 0 && rows[i-1].y - r.y > Math.max(r.h,10) * 1.9) flush();
+    let ri = 0;
+    for (let i = 0; i < nonEmpty.length; i++) {
+      const r = nonEmpty[i], text = r.text;
+      let type = "p";
+      if (roles) {
+        const role = roles[i];
+        if (role === "heading") type = "h"; else if (role === "subheading") type = "sh";
+      } else {
+        if (r.h >= bodyH * 1.25 && text.split(" ").length <= 14) type = "h";
+      }
+      if (type !== "p") { flush(); blocks.push({ type, text }); continue; }
+      const origIdx = rows.indexOf(r);
+      if (origIdx > 0 && rows[origIdx-1].y - r.y > Math.max(r.h,10) * 1.9) flush();
       if (curPara.length && /-$/.test(curPara[curPara.length-1]))
         curPara[curPara.length-1] = curPara[curPara.length-1].replace(/-$/,"") + text;
       else curPara.push(text);
@@ -346,7 +487,8 @@ async function loadPDF(file) {
     flush();
 
     for (const b of blocks) {
-      const el = document.createElement(b.type === "h" ? "h2" : "p");
+      const tag = b.type === "h" ? "h2" : b.type === "sh" ? "h3" : "p";
+      const el = document.createElement(tag);
       for (const phrase of splitPhrases(b.text)) {
         const s = document.createElement("span");
         s.className = "ck"; s.textContent = phrase;
@@ -359,16 +501,15 @@ async function loadPDF(file) {
     }
   }
 
-  drop.style.display = "none";
-  drop.querySelector("h1").innerHTML = "Echo<em>Read</em>";
-  doc.style.display = "block";
-  document.body.classList.remove("nosb");   // reveal sidebar once a doc is open
+  landing.style.display = "none";
+  landing.querySelector("h1").innerHTML = "Echo<em>Read</em>";
+  surface.style.display = "block";
+  setStatus("");
   fillVoices();
   const savedP = localStorage.getItem("echo.provider");
   if (savedP) { $("provider").value = savedP; fillVoices(); }
-  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeywrap();
+  if ($("provider").value !== "browser" && !getKey($("provider").value)) showKeywrap();
 
-  // resume support
   const savedPos = parseInt(localStorage.getItem("echo.pos." + curFileName), 10);
   if (!isNaN(savedPos) && savedPos > 0 && savedPos < chunks.length) {
     $("resumeBtn").style.display = "block";
@@ -414,7 +555,7 @@ function setStatus(t) { $("status").textContent = t || ""; }
 
 async function fetchAudio(i) {
   if (audioCache.has(i)) return audioCache.get(i);
-  const p = $("provider").value, key = keyFor(p), voice = $("voice").value;
+  const p = $("provider").value, key = getKey(p), voice = $("voice").value;
   const text = chunks[i].text;
   let url, opts;
   if (p === "deepgram") {
@@ -456,7 +597,7 @@ async function playCurrent(tok) {
     return;
   }
 
-  if (!keyFor(p)) { setStatus("Add an API key first"); showKeywrap(); stopAll(); return; }
+  if (!getKey(p)) { setStatus("Add an API key first"); showKeywrap(); stopAll(); return; }
   try {
     setStatus(audioCache.has(cur) ? "" : "loading…");
     const src = await fetchAudio(cur);
@@ -512,13 +653,13 @@ $("focus").addEventListener("change", e => doc.classList.toggle("focusmode", e.t
 
 document.addEventListener("keydown", e => {
   if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
-  if (doc.style.display === "none" && e.code !== "KeyS") return;
+  if (e.code === "KeyS") { setSidebar(!document.body.classList.contains("sb-open")); return; }
+  if (surface.style.display === "none") return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
   if (e.key === "ArrowDown") { e.preventDefault(); skip(1); }
   if (e.key === "ArrowUp")   { e.preventDefault(); skip(-1); }
   if (e.code === "KeyR" && cur >= 0) playFrom(cur);
-  if (e.code === "KeyS") toggleSidebar();
-  if (e.key === "Escape") stopAll();
+  if (e.key === "Escape") { stopAll(); setSidebar(false); }
 });
 function skip(d) {
   const target = Math.max(0, Math.min(chunks.length - 1, (cur < 0 ? 0 : cur) + d));
