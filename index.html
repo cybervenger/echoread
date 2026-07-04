@@ -7,68 +7,83 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <style>
   :root{
-    --ink:#14161a; --panel:#1d2026; --edge:#2b2f37;
+    --ink:#14161a; --glass:rgba(24,27,32,.72); --edge:#2b2f37;
     --paper:#e9e3d6; --dim:rgba(233,227,214,.34); --ui:#9aa1ad;
     --beam:#f4b04a; --beam-bg:rgba(255,199,92,.18); --beam-text:#ffe9c2;
+    --glow1:rgba(244,176,74,.10); --glow2:rgba(64,140,150,.11);
   }
   body.paper{
-    --ink:#f6f1e5; --panel:#ede6d4; --edge:#d9cfb8;
+    --ink:#f6f1e5; --glass:rgba(246,241,229,.78); --edge:#d9cfb8;
     --paper:#2b2620; --dim:rgba(43,38,32,.38); --ui:#7a715f;
     --beam:#c77d10; --beam-bg:rgba(244,176,74,.30); --beam-text:#3d2c07;
+    --glow1:rgba(199,125,16,.12); --glow2:rgba(64,140,150,.10);
   }
   *{box-sizing:border-box;margin:0;padding:0}
   html,body{background:var(--ink);color:var(--paper)}
-  body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.75}
-
-  #progress{position:fixed;top:0;left:0;height:3px;background:var(--beam);width:0;z-index:20}
-
-  header{
-    position:sticky;top:0;z-index:10;
-    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
-    padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--edge);
-    font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:var(--ui);
+  body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.78}
+  body::before{
+    content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+    background:
+      radial-gradient(640px 420px at 88% 8%, var(--glow1), transparent 62%),
+      radial-gradient(760px 540px at 6% 92%, var(--glow2), transparent 62%);
   }
-  .wordmark{font-family:Charter,Georgia,serif;font-size:17px;font-weight:700;color:var(--paper)}
+  #progress{position:fixed;top:0;left:0;height:3px;background:var(--beam);width:0;z-index:30}
+
+  /* ============ sidebar ============ */
+  #side{
+    position:fixed;top:0;bottom:0;left:0;width:272px;z-index:20;
+    background:var(--glass);backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);
+    border-right:1px solid var(--edge);
+    padding:20px 18px;overflow-y:auto;
+    display:flex;flex-direction:column;gap:20px;
+    font-family:system-ui,-apple-system,sans-serif;font-size:13px;color:var(--ui);
+    transition:transform .25s ease;
+  }
+  body.nosb #side{transform:translateX(-100%)}
+  #sbToggle{
+    position:fixed;top:14px;left:14px;z-index:25;display:none;
+    background:var(--glass);backdrop-filter:blur(12px);
+    border:1px solid var(--edge);border-radius:10px;
+    padding:8px 12px;color:var(--paper);cursor:pointer;font-size:16px;
+  }
+  body.nosb #sbToggle{display:block}
+  .sidehead{display:flex;align-items:center;justify-content:space-between}
+  .wordmark{font-family:Charter,Georgia,serif;font-size:21px;font-weight:700;color:var(--paper)}
   .wordmark em{color:var(--beam);font-style:normal}
-  header .name{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  button,select,input[type=password]{font:inherit;color:var(--paper);background:var(--panel);border:1px solid var(--edge);border-radius:8px;padding:6px 12px}
-  button{cursor:pointer;background:transparent}
+  .sec{display:flex;flex-direction:column;gap:9px}
+  .sec .t{font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ui)}
+  #fname{color:var(--paper);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  button,select,input[type=password]{
+    font:inherit;color:var(--paper);background:transparent;
+    border:1px solid var(--edge);border-radius:9px;padding:8px 12px;width:100%;
+  }
+  select{background:var(--glass)}
+  button{cursor:pointer}
   button:hover{border-color:var(--beam)}
-  button.primary{background:var(--beam);border-color:var(--beam);color:#141009;font-weight:600}
+  button.primary{background:var(--beam);border-color:var(--beam);color:#141009;font-weight:700;font-size:15px;padding:11px}
   body.paper button.primary{color:#fff}
   button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--beam);outline-offset:2px}
-  select{max-width:160px}
-  label{display:flex;align-items:center;gap:6px;white-space:nowrap}
-  input[type=range]{accent-color:var(--beam)}
-  .spacer{flex:1}
-  #status{font-size:12px;min-width:60px}
+  .row{display:flex;align-items:center;gap:8px}
+  .row span.v{min-width:38px;text-align:right;color:var(--paper)}
+  input[type=range]{width:100%;accent-color:var(--beam)}
+  label.chk{display:flex;align-items:center;gap:8px;cursor:pointer}
+  #status{min-height:16px;font-size:12px;color:var(--beam)}
+  #resumeBtn{display:none}
+  #keywrap{display:none;flex-direction:column;gap:8px}
+  #keywrap a{color:var(--beam)}
+  .hint{margin-top:auto;font-size:11.5px;line-height:1.9;color:var(--ui)}
+  kbd{border:1px solid var(--edge);border-radius:5px;padding:0 6px;font-family:inherit}
 
-  #keybar{
-    display:none;gap:10px;align-items:center;flex-wrap:wrap;
-    padding:10px 18px;background:var(--panel);border-bottom:1px solid var(--edge);
-    font-family:system-ui,sans-serif;font-size:13px;color:var(--ui);
-  }
-  #keybar input{width:340px;max-width:60vw}
-  #keybar a{color:var(--beam)}
-
-  #drop{
-    max-width:640px;margin:14vh auto;padding:56px 40px;text-align:center;
-    border:2px dashed var(--edge);border-radius:16px;cursor:pointer;
-    font-family:system-ui,-apple-system,sans-serif;
-  }
-  #drop.over{border-color:var(--beam);background:var(--beam-bg)}
-  #drop h1{font-family:Charter,Georgia,serif;font-size:40px;margin-bottom:10px}
-  #drop h1 em{color:var(--beam);font-style:normal}
-  #drop p{color:var(--ui);font-size:15px;line-height:1.6}
-  #drop .note{margin-top:24px;font-size:13px;color:var(--ui)}
-  kbd{border:1px solid var(--edge);border-radius:5px;padding:1px 7px;font-family:inherit}
-
-  #doc{max-width:700px;margin:0 auto;padding:44px 24px 40vh;font-size:19px;display:none}
-  #doc p{margin-bottom:1.1em}
-  #doc h2{font-size:25px;line-height:1.35;margin:1.6em 0 .6em;font-weight:700}
+  /* ============ reading surface ============ */
+  #content{margin-left:272px;transition:margin .25s ease}
+  body.nosb #content{margin-left:0}
+  #doc{max-width:880px;margin:0 auto;padding:56px 40px 42vh;font-size:19.5px;display:none}
+  #doc p{margin-bottom:1.15em}
+  #doc h2{font-size:26px;line-height:1.35;margin:1.6em 0 .6em;font-weight:700}
   .pagemark{
     font-family:system-ui,sans-serif;font-size:11px;letter-spacing:.15em;
-    color:var(--ui);text-transform:uppercase;margin:40px 0 16px;
+    color:var(--ui);text-transform:uppercase;margin:42px 0 16px;
     border-top:1px solid var(--edge);padding-top:8px;
   }
   .ck{border-radius:5px;padding:1px 2px;margin:-1px -2px;cursor:pointer}
@@ -77,64 +92,123 @@
   #doc.focusmode .ck:not(.active){color:var(--dim)}
   #doc.focusmode .ck:hover{color:var(--paper)}
   @media (prefers-reduced-motion:no-preference){.ck{transition:background .1s,color .1s}}
+
+  #drop{
+    max-width:640px;margin:16vh auto;padding:56px 40px;text-align:center;
+    border:2px dashed var(--edge);border-radius:16px;cursor:pointer;
+    background:var(--glass);backdrop-filter:blur(12px);
+    font-family:system-ui,-apple-system,sans-serif;
+  }
+  #drop.over{border-color:var(--beam);background:var(--beam-bg)}
+  #drop h1{font-family:Charter,Georgia,serif;font-size:42px;margin-bottom:10px}
+  #drop h1 em{color:var(--beam);font-style:normal}
+  #drop p{color:var(--ui);font-size:15px;line-height:1.7}
+  #drop .note{margin-top:24px;font-size:13px;color:var(--ui)}
+
+  @media (max-width:820px){
+    #side{width:min(272px,84vw)}
+    #content{margin-left:0}
+    body:not(.nosb) #content{filter:blur(2px)}
+    #doc{padding:56px 20px 42vh}
+  }
 </style>
 </head>
-<body>
+<body class="nosb">
 <div id="progress"></div>
+<button id="sbToggle" title="Menu (S)">☰</button>
 
-<header id="bar" style="display:none">
-  <span class="wordmark">Echo<em>Read</em></span>
-  <span class="name" id="fname"></span>
-  <button class="primary" id="playBtn">Play</button>
-  <select id="pagejump"><option value="">Page…</option></select>
-  <label>Provider
+<aside id="side">
+  <div class="sidehead">
+    <span class="wordmark">Echo<em>Read</em></span>
+    <button style="width:auto;padding:6px 10px" id="sbClose" title="Hide (S)">⟨</button>
+  </div>
+
+  <div class="sec">
+    <span class="t">Document</span>
+    <span id="fname">No PDF open</span>
+    <button id="newFile">Open PDF</button>
+    <select id="pagejump"><option value="">Jump to page…</option></select>
+    <button id="resumeBtn">▶ Resume where you left off</button>
+  </div>
+
+  <div class="sec">
+    <span class="t">Playback</span>
+    <button class="primary" id="playBtn">Play</button>
+    <div class="row"><span>Speed</span><input type="range" id="rate" min="0.6" max="2" step="0.1" value="1"><span class="v" id="rateVal">1.0×</span></div>
+    <label class="chk"><input type="checkbox" id="focus" checked> Focus mode (dim the rest)</label>
+    <span id="status"></span>
+  </div>
+
+  <div class="sec">
+    <span class="t">Voice</span>
     <select id="provider">
       <option value="deepgram">Deepgram</option>
       <option value="elevenlabs">ElevenLabs</option>
       <option value="browser">Browser voice</option>
     </select>
-  </label>
-  <label>Voice <select id="voice"></select></label>
-  <label>Speed <input type="range" id="rate" min="0.6" max="2" step="0.1" value="1"> <span id="rateVal">1.0×</span></label>
-  <label><input type="checkbox" id="focus" checked> Focus</label>
-  <span id="status"></span>
-  <span class="spacer"></span>
-  <button id="theme">Theme</button>
-  <button id="keyBtn">API key</button>
-  <button id="newFile">New PDF</button>
-</header>
+    <select id="voice"></select>
+    <button id="keyBtn">API key</button>
+    <div id="keywrap">
+      <input type="password" id="apikey" placeholder="Paste API key">
+      <button class="primary" id="saveKey" style="font-size:13px;padding:8px">Save key</button>
+      <span id="keyhelp"></span>
+    </div>
+  </div>
 
-<div id="keybar">
-  <span id="keylabel"></span>
-  <input type="password" id="apikey" placeholder="Paste API key">
-  <button class="primary" id="saveKey">Save</button>
-  <span id="keyhelp"></span>
+  <div class="sec">
+    <span class="t">Appearance</span>
+    <div class="row"><span>Text size</span><input type="range" id="fsize" min="16" max="24" step="0.5" value="19.5"><span class="v" id="fsizeVal">19.5</span></div>
+    <button id="theme">Switch theme</button>
+  </div>
+
+  <div class="hint">
+    <kbd>Space</kbd> play / pause<br>
+    <kbd>↑</kbd><kbd>↓</kbd> previous / next phrase<br>
+    <kbd>R</kbd> repeat phrase · <kbd>S</kbd> sidebar · <kbd>Esc</kbd> stop
+  </div>
+</aside>
+
+<div id="content">
+  <div id="drop">
+    <h1>Echo<em>Read</em></h1>
+    <p>Drop a PDF here, or click to choose one.<br>
+       Click any sentence and it starts reading aloud from there in a human voice,<br>
+       highlighting each phrase as it goes — so the words echo instead of blur.</p>
+    <div class="note">Your PDF stays on your device; only the text of each phrase is sent to the voice API.</div>
+    <input type="file" id="file" accept="application/pdf" hidden>
+  </div>
+  <main id="doc" class="focusmode"></main>
 </div>
-
-<div id="drop">
-  <h1>Echo<em>Read</em></h1>
-  <p>Drop a PDF here, or click to choose one.<br>
-     Click any sentence and it starts reading aloud from there in a human voice,<br>
-     highlighting each phrase as it goes — so the words echo instead of blur.</p>
-  <div class="note"><kbd>Space</kbd> pause · <kbd>↑</kbd><kbd>↓</kbd> skip · <kbd>Esc</kbd> stop · Your PDF stays on your device; only the text of each phrase is sent to the voice API.</div>
-  <input type="file" id="file" accept="application/pdf" hidden>
-</div>
-
-<main id="doc" class="focusmode"></main>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc =
   "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 
 const $ = id => document.getElementById(id);
-const doc = $("doc"), drop = $("drop"), bar = $("bar"), keybar = $("keybar");
+const doc = $("doc"), drop = $("drop");
 
-/* ---------------- theme ---------------- */
+/* ---------------- sidebar ---------------- */
+function toggleSidebar(force) {
+  document.body.classList.toggle("nosb", force);
+}
+$("sbToggle").addEventListener("click", () => toggleSidebar(false));
+$("sbClose").addEventListener("click", () => toggleSidebar(true));
+
+/* ---------------- theme & text size ---------------- */
 if (localStorage.getItem("echo.theme") === "paper") document.body.classList.add("paper");
 $("theme").addEventListener("click", () => {
   document.body.classList.toggle("paper");
   localStorage.setItem("echo.theme", document.body.classList.contains("paper") ? "paper" : "night");
 });
+const savedFs = localStorage.getItem("echo.fsize");
+if (savedFs) { $("fsize").value = savedFs; applyFsize(); }
+$("fsize").addEventListener("input", applyFsize);
+function applyFsize() {
+  const v = $("fsize").value;
+  doc.style.fontSize = v + "px";
+  $("fsizeVal").textContent = v;
+  localStorage.setItem("echo.fsize", v);
+}
 
 /* ---------------- voices ---------------- */
 const VOICES = {
@@ -172,31 +246,30 @@ speechSynthesis.onvoiceschanged = fillVoices;
 function keyFor(p) {
   const v = localStorage.getItem("echo.key." + p);
   if (!v) return "";
-  try { return atob(v); } catch { return v; }   // encoded at rest; tolerate old plain keys
+  try { return atob(v); } catch { return v; }
 }
-function showKeybar() {
+function showKeywrap() {
   const p = $("provider").value;
-  if (p === "browser") { keybar.style.display = "none"; return; }
-  keybar.style.display = "flex";
-  $("keylabel").textContent = (p === "deepgram" ? "Deepgram" : "ElevenLabs") + " API key:";
+  if (p === "browser") { $("keywrap").style.display = "none"; return; }
+  $("keywrap").style.display = "flex";
   $("apikey").value = "";
-  $("apikey").placeholder = keyFor(p) ? "Key saved ✓ — paste here only to replace it" : "Paste API key";
+  $("apikey").placeholder = keyFor(p) ? "Key saved ✓ — paste only to replace" : "Paste API key";
   $("keyhelp").innerHTML = p === "deepgram"
     ? 'Free at <a href="https://console.deepgram.com" target="_blank">console.deepgram.com</a> ($200 credit, no card)'
     : 'Free at <a href="https://elevenlabs.io" target="_blank">elevenlabs.io</a> (Profile → API keys)';
 }
 $("keyBtn").addEventListener("click", () =>
-  keybar.style.display = keybar.style.display === "flex" ? "none" : (showKeybar(), "flex"));
+  $("keywrap").style.display = $("keywrap").style.display === "flex" ? "none" : (showKeywrap(), "flex"));
 $("saveKey").addEventListener("click", () => {
   const v = $("apikey").value.trim();
   if (v) localStorage.setItem("echo.key." + $("provider").value, btoa(v));
   $("apikey").value = "";
-  keybar.style.display = "none"; setStatus(v ? "Key saved" : "");
+  $("keywrap").style.display = "none"; setStatus(v ? "Key saved" : "");
 });
 $("provider").addEventListener("change", () => {
   localStorage.setItem("echo.provider", $("provider").value);
   fillVoices(); audioCache.clear();
-  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeybar();
+  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeywrap();
 });
 $("voice").addEventListener("change", () => {
   localStorage.setItem("echo.voice." + $("provider").value, $("voice").value);
@@ -213,20 +286,20 @@ drop.addEventListener("drop", e => {
   if (f && f.type === "application/pdf") loadPDF(f);
 });
 $("file").addEventListener("change", e => e.target.files[0] && loadPDF(e.target.files[0]));
-$("newFile").addEventListener("click", () => {
-  stopAll(); doc.style.display = "none"; bar.style.display = "none";
-  drop.style.display = "block"; $("file").value = ""; $("file").click();
-});
+$("newFile").addEventListener("click", () => { $("file").value = ""; $("file").click(); });
 
 let chunks = [];
 let cur = -1, playing = false, session = 0;
+let curFileName = "";
 const audioCache = new Map();
 let player = null;
 
 async function loadPDF(file) {
   stopAll(); doc.innerHTML = ""; chunks = []; cur = -1; audioCache.clear();
+  curFileName = file.name;
   $("fname").textContent = file.name;
-  $("pagejump").innerHTML = '<option value="">Page…</option>';
+  $("pagejump").innerHTML = '<option value="">Jump to page…</option>';
+  $("resumeBtn").style.display = "none";
   drop.querySelector("h1").innerHTML = "Reading your PDF…";
 
   const buf = await file.arrayBuffer();
@@ -235,7 +308,6 @@ async function loadPDF(file) {
   for (let p = 1; p <= pdf.numPages; p++) {
     const page = await pdf.getPage(p);
     const tc = await page.getTextContent();
-
     const rows = [];
     for (const it of tc.items) {
       if (!it.str.trim()) continue;
@@ -246,8 +318,6 @@ async function loadPDF(file) {
       row.h = Math.max(row.h, it.height || 12);
     }
     rows.sort((a,b) => b.y - a.y);
-
-    // body text size = median row height on this page
     const hs = rows.map(r => r.h).sort((a,b) => a-b);
     const bodyH = hs.length ? hs[Math.floor(hs.length/2)] : 12;
 
@@ -259,7 +329,6 @@ async function loadPDF(file) {
     opt.value = p; opt.textContent = "Page " + p;
     $("pagejump").appendChild(opt);
 
-    // build blocks: heading rows stand alone; body rows merge into paragraphs
     const blocks = []; let curPara = [];
     const flush = () => { if (curPara.length) { blocks.push({ type:"p", text: curPara.join(" ") }); curPara = []; } };
     for (let i = 0; i < rows.length; i++) {
@@ -292,27 +361,33 @@ async function loadPDF(file) {
 
   drop.style.display = "none";
   drop.querySelector("h1").innerHTML = "Echo<em>Read</em>";
-  doc.style.display = "block"; bar.style.display = "flex";
+  doc.style.display = "block";
+  document.body.classList.remove("nosb");   // reveal sidebar once a doc is open
   fillVoices();
   const savedP = localStorage.getItem("echo.provider");
   if (savedP) { $("provider").value = savedP; fillVoices(); }
-  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeybar();
+  if ($("provider").value !== "browser" && !keyFor($("provider").value)) showKeywrap();
+
+  // resume support
+  const savedPos = parseInt(localStorage.getItem("echo.pos." + curFileName), 10);
+  if (!isNaN(savedPos) && savedPos > 0 && savedPos < chunks.length) {
+    $("resumeBtn").style.display = "block";
+    $("resumeBtn").onclick = () => playFrom(savedPos);
+  }
   window.scrollTo(0,0);
 }
 
 $("pagejump").addEventListener("change", e => {
   const el = document.getElementById("page-" + e.target.value);
   if (el) el.scrollIntoView({ behavior:"smooth" });
-  e.target.value = "";
+  e.target.value = ""; e.target.blur();
 });
 
-/* progress bar */
 document.addEventListener("scroll", () => {
   const max = document.documentElement.scrollHeight - innerHeight;
   $("progress").style.width = (max > 0 ? (scrollY / max) * 100 : 0) + "%";
 });
 
-/* sentence -> phrase splitting */
 function splitPhrases(text) {
   const sentences = text.match(/[^.?!]+[.?!]+["')\]]*|[^.?!]+$/g) || [text];
   const out = [];
@@ -366,6 +441,7 @@ async function playCurrent(tok) {
   if (tok !== session) return;
   if (cur < 0 || cur >= chunks.length) { stopAll(); return; }
   highlight(cur);
+  localStorage.setItem("echo.pos." + curFileName, cur);
   const p = $("provider").value;
   $("playBtn").textContent = "Pause";
 
@@ -380,12 +456,12 @@ async function playCurrent(tok) {
     return;
   }
 
-  if (!keyFor(p)) { setStatus("Add an API key first"); showKeybar(); stopAll(); return; }
+  if (!keyFor(p)) { setStatus("Add an API key first"); showKeywrap(); stopAll(); return; }
   try {
     setStatus(audioCache.has(cur) ? "" : "loading…");
     const src = await fetchAudio(cur);
     setStatus("");
-    if (!playing || tok !== session) return;   // a newer click or stop happened while downloading
+    if (!playing || tok !== session) return;
     player = new Audio(src);
     player.playbackRate = parseFloat($("rate").value);
     player.onended = () => { if (playing && tok === session) { cur++; playCurrent(tok); } };
@@ -406,7 +482,7 @@ function highlight(i) {
 }
 
 function stopAll() {
-  session++;                 // invalidates every pending fetch/callback
+  session++;
   playing = false;
   speechSynthesis.cancel();
   if (player) { player.pause(); player = null; }
@@ -421,6 +497,7 @@ function togglePlay() {
     if (player) player.pause();
     $("playBtn").textContent = "Play";
   } else {
+    if (!chunks.length) return;
     if (cur < 0) cur = 0;
     playing = true;
     if (player && $("provider").value !== "browser") { player.play(); $("playBtn").textContent = "Pause"; }
@@ -434,11 +511,13 @@ $("rate").addEventListener("input", () => {
 $("focus").addEventListener("change", e => doc.classList.toggle("focusmode", e.target.checked));
 
 document.addEventListener("keydown", e => {
-  if (doc.style.display === "none") return;
   if (e.target.tagName === "INPUT" || e.target.tagName === "SELECT") return;
+  if (doc.style.display === "none" && e.code !== "KeyS") return;
   if (e.code === "Space") { e.preventDefault(); togglePlay(); }
   if (e.key === "ArrowDown") { e.preventDefault(); skip(1); }
   if (e.key === "ArrowUp")   { e.preventDefault(); skip(-1); }
+  if (e.code === "KeyR" && cur >= 0) playFrom(cur);
+  if (e.code === "KeyS") toggleSidebar();
   if (e.key === "Escape") stopAll();
 });
 function skip(d) {
