@@ -11,7 +11,7 @@
     --edge:rgba(236,230,216,.14);
     --glass:rgba(28,30,36,.62); --glass-hi:rgba(255,255,255,.05);
     --beam:#f2ad4d; --beam-bg:rgba(242,173,77,.20); --beam-text:#ffe8c2;
-    --bg-dim:.55; --read-width:700px;
+    --bg-dim:.55; --read-width:820px;
   }
   body.paper{
     --ink:#f7f2e6; --paper:#2c2620; --ui:#8a7f6a; --dim:rgba(44,38,32,.34);
@@ -23,7 +23,11 @@
   html,body{background:var(--ink);color:var(--paper);height:100%}
   body{font-family:Charter,Georgia,'Times New Roman',serif;line-height:1.8;overflow-x:hidden}
 
-  #bgLayer{position:fixed;inset:0;z-index:-3;background-size:cover;background-position:center;filter:saturate(1.05)}
+  #bgLayer{
+    position:fixed;inset:-40px;z-index:-3;background-size:cover;background-position:center;
+    filter:blur(46px) saturate(1.08) brightness(.92);
+    transform:scale(1.08);
+  }
   #bgDim{position:fixed;inset:0;z-index:-2;background:var(--ink);opacity:var(--bg-dim);transition:opacity .2s}
   body.paper #bgDim{background:var(--ink)}
   #bgGlow{
@@ -193,7 +197,7 @@
   <div class="sec">
     <span class="t">Appearance</span>
     <div class="row"><span>Text size</span><input type="range" id="fsize" min="16" max="24" step="0.5" value="19.5"><span class="v" id="fsizeVal">19.5</span></div>
-    <div class="row"><span>Column</span><input type="range" id="rwidth" min="560" max="960" step="20" value="700"><span class="v" id="rwidthVal">700</span></div>
+    <div class="row"><span>Column</span><input type="range" id="rwidth" min="600" max="1080" step="20" value="820"><span class="v" id="rwidthVal">820</span></div>
     <button id="theme">Switch theme</button>
     <button id="bgPick">Choose background image</button>
     <input type="file" id="bgFile" accept="image/*" hidden>
